@@ -5,9 +5,6 @@ import numpy as np
 import pandas as pd
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 200)
-import datetime as dt
-import matplotlib.pyplot as plt
-import seaborn as sns
 from tqdm import tqdm
 
 import sklearn
@@ -20,10 +17,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 import joblib
-import pickle
-
-import warnings
-warnings.filterwarnings('ignore')
 
 ## Set model paths
 model_name = 'model2'
@@ -489,14 +482,14 @@ if __name__ == "__main__":
                     break
 
         #### display training loss
-        plt.figure(figsize=(10, 4))
-        plt.plot(epoch_train_losses, label='train')
-        plt.plot(epoch_val_losses, label='valid')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title(f'Training Loss @ Fold {fold+1}')
-        plt.legend()
-        plt.show()
+        # plt.figure(figsize=(10, 4))
+        # plt.plot(epoch_train_losses, label='train')
+        # plt.plot(epoch_val_losses, label='valid')
+        # plt.xlabel('Epoch')
+        # plt.ylabel('Loss')
+        # plt.title(f'Training Loss @ Fold {fold+1}')
+        # plt.legend()
+        # plt.show()
 
         #### clear memory after each fold
         del model, optimizer, train_dataset, train_dataloader, val_dataset, val_dataloader
