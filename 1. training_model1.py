@@ -125,7 +125,7 @@ if __name__ == '__main__':
                        [17, 23.986557, 121.586230, np.nan, np.nan, np.nan],]
     location_detail_df = pd.DataFrame(location_detail, columns=['LocationCode', 'Latitude', 'Longitude', 'Degree', "Direction", "Level"])
     
-    # load data $ pre-process
+    # load data & pre-process
     csv_files_train_1 = glob.glob("./data/36_TrainingData/*.csv")
     csv_files_train_2 = glob.glob("./data/36_TrainingData_Additional_V2/*.csv")
     csv_files_test_1 = glob.glob("./data/36_TestSet_SubmissionTemplate/*.csv")
@@ -190,7 +190,7 @@ if __name__ == '__main__':
         training_df[col] = le.fit_transform(training_df[col])
         le_dict[col] = le
     
-    # set cross validation set
+    # set cross validation
     n_splits = 5
     training_df['fold'] = -1
     y = 'Power(mW)'
