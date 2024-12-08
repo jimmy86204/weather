@@ -42,6 +42,14 @@ def create_early_features(df_, col):
     use_col = [col, f'{col}_change1', f'{col}_change2']
     return Sunlight_mean[use_col+['date', 'LocationCode']], [], use_col
 
+def get_delta_features(df):
+    concat_df = df.copy()
+    original_features = ['Pressure(hpa)', 'Temperature(°C)', 'Sunlight(Lux)']
+    res = concat_df.groupby(['LocationCode', 'Datetime_hour'])[original_features].agg(['max', 'min', 'last', 'first', 'std']).reset_index()
+    res.columns = [f"{x[0]}{x[1]}" for x in res.columns]
+    res.Datetime_hour = res.Datetime_hour + datetime.timedelta(days = 1)
+    return res, [], res.drop(columns=['LocationCode', 'Datetime_hour']).columns.tolist()
+
 def fe(df_):
     df = df_.copy()
     df['date'] = df.DateTime.dt.date
@@ -50,22 +58,12 @@ def fe(df_):
     df['weekday'] = df.DateTime.dt.weekday
     df['month'] = df.DateTime.dt.month
     df = df.merge(location_detail_df, on=['LocationCode'], how='left')
+    f_df, f_df_cat_col, f_df_num_col = get_delta_features(df)
+    df = df.merge(f_df, on=['Datetime_hour', 'LocationCode'], how='left')
     
-    original_features = ['WindSpeed(m/s)', 'Pressure(hpa)', 'Temperature(°C)', 'Sunlight(Lux)']
-    tmp = concat_df.groupby(['DateTime'])[original_features].mean().reset_index().rename(columns={x : f"{x}_mean" for x in original_features})
-    use_cols = [f"{x}_mean" for x in original_features]
-    tmp = pd.concat([tmp, tmp.shift(1)[use_cols].add_suffix('_shift1'), tmp.shift(-1)[use_cols].add_suffix('_shift-1')], axis=1)
-    for feature in original_features:
-        tmp[f'{feature}_mean_shift1_ratio'] = tmp[f'{feature}_mean'] / (tmp[f'{feature}_mean_shift1'] + 1e-4)
-        tmp[f'{feature}_mean_shift-1_ratio'] = tmp[f'{feature}_mean'] / (tmp[f'{feature}_mean_shift-1'] + 1e-4)
-        use_cols += [f'{feature}_mean_shift1_ratio', f'{feature}_mean_shift-1_ratio']
-    df = df.merge(
-        tmp, on=['DateTime'], how='left'
-    )
-    
-    early_features_list = ['WindSpeed(m/s)', 'Pressure(hpa)', 'Temperature(°C)', 'Sunlight(Lux)']
-    cat_cols = ['hour', 'month', 'minutes', 'weekday', 'WindDirection', 'Direction', 'Level']
-    num_cols = f + ['Latitude', 'Longitude', 'Degree'] + use_cols
+    early_features_list = ['Pressure(hpa)', 'Temperature(°C)', 'Sunlight(Lux)']
+    cat_cols = ['hour', 'month', 'minutes', 'weekday', 'WindDirection', 'Direction', 'Level'] + f_df_cat_col
+    num_cols = f + ['Latitude', 'Longitude', 'Degree'] + f_df_num_col
     for col in early_features_list:
         res, cat_col, num_col = create_early_features(df, col)
         df = df.drop(columns=[col]).merge(res, on=['date', 'LocationCode'], how='left')
@@ -107,6 +105,7 @@ def trainer(train_x, train_y, valid_x, valid_y, cat_cols):
     return reg
 
 if __name__ == '__main__':
+    # to get localtion embedding
     location_detail = [[1, 23.899444, 121.544444, 181, "S", 5],
                        [2, 23.899722, 121.544722, 175, "S", 5],
                        [3, 23.899722, 121.545000, 180, "S", 5],
@@ -125,6 +124,8 @@ if __name__ == '__main__':
                        [16, 24.008889, 121.617222, 82, 'E', 1],
                        [17, 23.986557, 121.586230, np.nan, np.nan, np.nan],]
     location_detail_df = pd.DataFrame(location_detail, columns=['LocationCode', 'Latitude', 'Longitude', 'Degree', "Direction", "Level"])
+    
+    # load data $ pre-process
     csv_files_train_1 = glob.glob("./data/36_TrainingData/*.csv")
     csv_files_train_2 = glob.glob("./data/36_TrainingData_Additional_V2/*.csv")
     csv_files_test_1 = glob.glob("./data/36_TestSet_SubmissionTemplate/*.csv")
@@ -146,6 +147,7 @@ if __name__ == '__main__':
     concat_df = concat_df.sort_values(by=['LocationCode', 'DateTime']).reset_index(drop=True)
     concat_df['Datetime_hour'] = pd.to_datetime(concat_df.DateTime.dt.strftime('%Y-%m-%d %H:00:00'))
 
+    # load extra data & pre-process
     df_weather = pd.read_parquet('./data/open_weather_data.parq')
     df_weather_sub = df_weather[df_weather.site_name == '花蓮'].reset_index(drop=True)
     df_weather_sub.loc[df_weather_sub.Precipitation == 'T', 'Precipitation'] = 0.1
@@ -164,33 +166,47 @@ if __name__ == '__main__':
         df_weather_sub[f'{col}_prevState_change1'] = df_weather_sub[col] / (df_weather_sub[col + '_prevState1'] + 1e-4)
         df_weather_sub[f'{col}_nextState_change2'] = df_weather_sub[col] / (df_weather_sub[col + '_nextState2'] + 1e-4)
         df_weather_sub[f'{col}_prevState_change2'] = df_weather_sub[col] / (df_weather_sub[col + '_prevState2'] + 1e-4)
-        add_d += [f'{col}_nextState_change1', f'{col}_prevState_change1', f'{col}_nextState_change2', f'{col}_prevState_change2']
+        add_d += [f'{col}_nextState_change1', f'{col}_prevState_change1', f'{col}_nextState_change2', f'{col}_prevState_change2',
+                  f'{col}_nextState1', f'{col}_nextState2', f'{col}_prevState1', f'{col}_prevState2',]
     f += add_d
+    
+    # merge origianl data & extra data
     concat_df = concat_df.merge(
         df_weather_sub.rename(columns={'DataTime': "Datetime_hour"}).drop(columns=['site_name', 'site_id', 'hour']),
         on=['Datetime_hour'], how='left'
     )
+
+    # featrue engineering
     concat_fe_df, cat_cols, num_cols = fe(concat_df)
     features = cat_cols + num_cols
+    
     training_df = concat_fe_df[concat_fe_df.is_train == 1].reset_index(drop=True)
     testing_df = concat_fe_df[concat_fe_df.is_train == 0].reset_index(drop=True)
+    training_df = training_df[training_df.hour.isin([9, 10, 11, 12, 13, 14, 15, 16])].reset_index(drop=True)
+    # label encoder
     le_dict = {}
     for i, col in tqdm(enumerate(cat_cols)):
         le = LabelEncoder()
         training_df[col] = le.fit_transform(training_df[col])
         le_dict[col] = le
+    
+    # set cross validation set
     n_splits = 5
     training_df['fold'] = -1
     y = 'Power(mW)'
     sgkf = KFold(n_splits=n_splits, random_state=42, shuffle=True)
     for fold, (train_index, valid_index) in enumerate(sgkf.split(training_df['fold'])):
         training_df.loc[valid_index, 'fold'] = fold
+    
+    # set training environment
     model_name = 'model1'
     save_path = f'./output/{model_name}'
     try:
         os.mkdir(save_path)
     except:
         pass
+
+    # strining training
     oof_predictions = pd.DataFrame()
     all_result_record = []
     for fold in range(n_splits):
@@ -207,6 +223,8 @@ if __name__ == '__main__':
         validation["fold"] = fold
         oof_predictions = pd.concat([oof_predictions, validation[["preds", "LocationCode", y, "fold", "DateTime"]]], axis=0)
     oof_predictions.to_parquet(os.path.join(save_path, "oof.parq"))
+    
+    # inference
     for i, (col, le) in tqdm(enumerate(le_dict.items())):
         testing_df[col] = le.transform(testing_df[col])
     pred_cols = []
