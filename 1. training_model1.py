@@ -4,20 +4,13 @@ import numpy as np
 import glob
 import gc
 import datetime
-
-from sklearn.metrics import mean_squared_error
 from tqdm.auto import tqdm
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import LabelEncoder
 import lightgbm as lgb
 from lightgbm import LGBMRegressor
 import joblib
-import pickle
-import re
-from sklearn.pipeline import Pipeline
-from optuna.integration import LightGBMPruningCallback
-import catboost
-from catboost import CatBoostRegressor
 
 def round_down_to_previous_10_minutes(dt):
     # 減去多餘的分鐘數和秒數

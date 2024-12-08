@@ -66,7 +66,7 @@ def prepare_features(data):
     ## add index to raw data
     data['index_dt']  = data['datetime_10mins'].dt.strftime('%Y%m%d%H%M')
     data['index_loc'] = data['location_code'].apply(lambda x: f"{x:02}")
-    data['index'] = (data['index_dt'] + data['index_loc']).astype(int)
+    data['index'] = (data['index_dt'] + data['index_loc']).astype(np.int64)
     data = data.drop(columns=['index_dt', 'index_loc'])
 
     ## aggregate data
