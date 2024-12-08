@@ -19,10 +19,7 @@
       pip install -r requirements.txt
       ```
 
-   2. 如果您的電腦配有 GPU ，並希望使用 GPU 加速，請參考 [PyTorch 官方文件](https://pytorch.org/get-started/locally/) 安裝對應的 GPU 支援版本。例如：
-      ```bash
-      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-      ```
+   2. 如果您的電腦配有 GPU ，並希望使用 GPU 加速，請參考 [PyTorch 官方文件](https://pytorch.org/get-started/locally/) 安裝對應的 GPU 支援版本。
 
    3. 預設環境：
       - 本程式基於 **CPU 環境** 測試，建議在沒有 GPU 的情況下直接安裝預設的依賴套件。
